@@ -1,0 +1,603 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    
+    
+    
+    <title>
+        Nostalgic ray tracing with parry3d, portable-simd and rayon-xor-wasm
+    </title>
+    
+
+    
+    
+
+    
+    
+        <link href=https://batonius.github.io/fonts.css rel="stylesheet" />
+    
+
+    
+    
+        
+        
+
+        <script data-goatcounter="https://batonius.goatcounter.com/count" async src="https://batonius.github.io/js/count.js"></script>
+        <noscript>
+            
+            <img src="https://batonius.goatcounter.com//count?p=&#x2F;posts&#x2F;ray-ten&#x2F;&t=Nostalgic ray tracing with parry3d, portable-simd and rayon-xor-wasm">
+        </noscript>
+    
+
+    
+    <link rel="alternate" type="application/atom+xml" title="" href="https://batonius.github.io/atom.xml">
+
+    
+    
+    
+        <link rel="stylesheet" type="text/css" href="https://batonius.github.io/theme/light.css"/>
+        <link rel="stylesheet" type="text/css" href="https://batonius.github.io/theme/dark.css" media="(prefers-color-scheme: dark)"/>
+    
+
+    <link rel="stylesheet" type="text/css" media="screen" href=https://batonius.github.io/main.css />
+
+
+    
+        
+            <link rel="stylesheet" href="https://batonius.github.io/img.css">
+        
+    
+</head>
+
+<body>
+    <div class="content">
+        <header>
+    <div class="main">
+        <a href=https:&#x2F;&#x2F;batonius.github.io></a>
+    </div>
+
+    <nav>
+        
+            <a href=&#x2F;posts style="margin-left: 0.7em">&#x2F;posts</a>
+        
+            <a href=&#x2F;about style="margin-left: 0.7em">&#x2F;about</a>
+        
+    </nav>
+</header>
+
+        
+        
+    
+<main>
+    <article>
+        <div class="title">
+            
+            
+    <div class="page-header">
+        Nostalgic ray tracing with parry3d, portable-simd and rayon-xor-wasm<span class="primary-color" style="font-size: 1.6em">.</span>
+    </div>
+
+
+            
+                <div class="meta">
+                    Posted on 2022-08-19
+
+                    
+                </div>
+            
+        </div>
+
+        
+
+        
+        
+            
+                <h1>Table of Contents</h1>
+                <ul>
+                
+                    <li>
+                        <a href="https://batonius.github.io/posts/ray-ten/#feeling-nostalgic">Feeling nostalgic</a>
+                        
+                    </li>
+                
+                    <li>
+                        <a href="https://batonius.github.io/posts/ray-ten/#tracing-the-rays-with-parry3d">Tracing the rays with parry3d</a>
+                        
+                    </li>
+                
+                    <li>
+                        <a href="https://batonius.github.io/posts/ray-ten/#cutting-the-corners">Cutting the corners</a>
+                        
+                    </li>
+                
+                    <li>
+                        <a href="https://batonius.github.io/posts/ray-ten/#getting-to-know-portable-simd">Getting to know portable-simd</a>
+                        
+                    </li>
+                
+                    <li>
+                        <a href="https://batonius.github.io/posts/ray-ten/#circling-back">Circling back</a>
+                        
+                    </li>
+                
+                    <li>
+                        <a href="https://batonius.github.io/posts/ray-ten/#going-wide-with-rayon">Going wide with rayon</a>
+                        
+                    </li>
+                
+                    <li>
+                        <a href="https://batonius.github.io/posts/ray-ten/#fancying-up-with-checkers">Fancying up with checkers</a>
+                        
+                    </li>
+                
+                    <li>
+                        <a href="https://batonius.github.io/posts/ray-ten/#finishing-up">Finishing up</a>
+                        
+                    </li>
+                
+                    <li>
+                        <a href="https://batonius.github.io/posts/ray-ten/#getting-closure">Getting closure</a>
+                        
+                    </li>
+                
+                </ul>
+            
+        
+
+        <section class="body">
+            <p>You can see the final code at <a href="https://github.com/batonius/ray-ten">https://github.com/batonius/ray-ten</a> and play the wasm build at <a href="https://batonius.github.io/ray-ten/">https://batonius.github.io/ray-ten/</a>. </p>
+<h1 id="feeling-nostalgic">Feeling nostalgic</h1>
+<p>If you watched <a href="https://www.imdb.com/title/tt9495224/">Black Mirror: Bandersnatch</a> then you know that the UK in the 80s was booming with small-scale game development.
+For a variety of reasons, the dominant gaming platforms till the end of the decade were not consoles like NES, but locally made home computers. 
+That meant that if you were a gamer you already had all the hardware you needed to make a game yourself, provided you have enough patience to read a book or two.
+With no license fees and no cartridges to produce, the cost of making and publishing video games was small enough for one/two-men teams to fill the market with games of varying quality. 
+The dominant platform was the legendary ZX Spectrum. </p>
+<p>A decade later, in the 90s, this once vibrant scene found a second life far in the East, where the post-Soviet generation made their first steps at personal computing. 
+A ZX Spectrum clone was the home computer of choice because of its relatively low cost and vast software library, all of it pirated.
+Sure, playing on a Russian Spectrum clone wasn't as fun as playing on a Chinese NES clone - it lacked sprites, a sound chip (unless you were a lucky one with the 128K+ model), gamepads had only one button, and you had to wait for 5+ minutes for a game to load from a tape recorder (again, unless you were fortunate enough to have a floppy controller). 
+But once you learned how things worked, every game however bland was not only an entertainment but also a puzzle and an inspiration, something you could deconstruct and reconstruct if only you tried hard enough.</p>
+
+
+<figure>
+    <img src="delta-s.jpg" />
+    
+    <figcaption>The model I had, with a faulty RAM chip and a barely working keyboard.</figcaption>
+    
+</figure>
+<p>One such game was <a href="https://www.mobygames.com/game/zx-spectrum/room-ten">room ten</a>, written in 1986 by two Brits.
+It can be described as a first-person 3D pong, and despite having as boring and formulaic synopsis for the period as possible, the game itself was well written, had a nice visual style and played flawlessly, albeit slowly. </p>
+<div class="youtube">
+    <iframe src="https://www.youtube-nocookie.com/embed/FR2A6F3viLI" webkitallowfullscreen mozallowfullscreen allowfullscreen></iframe>
+</div>
+<p>Here we have more than enough to impress a young mind: wired 3D graphics, textured floor, realistic inertia, there's even a ball's shadow. 
+No wonder that years later, when I found myself with too much free time on my hands, this was the game my not-so-young-yet-still-impressed mind reminded me of.</p>
+<p>Of course writing a 3D game in 2022 doesn't have the same vibe as writing a 3D game for ZX Spectrum - instead of using up CPU cycles putting bytes directly into video memory, we use GPUs, graphics APIs and game engines. 
+Rendering inside of a box with a ball in it should be trivial - and it is (<a href="https://github.com/Overv/VulkanTutorial/blob/master/code/15_hello_triangle.cpp">unless you skip the engine part</a>). 
+The result is very fast - way too fast to be interesting.
+I needed a twist.</p>
+<h1 id="tracing-the-rays-with-parry3d">Tracing the rays with parry3d</h1>
+<p>So I decided to skip the entire graphics pipeline and use hand-woven ray tracing.
+True, it had nothing to do with staying true to the source: the original game didn't use it, the authors were practical.
+I, apparently, was not.</p>
+<p>By that time I had some experience with ray tracing - I implemented a renderer in C++ a decade or so ago for a Coursera course.
+All I remembered was that ray tracing is easy to implement and very slow to render.
+I remembered right.</p>
+<p>Ray tracing must be the most straightforward rendering approach, being the reverse of how vision works in real life: instead of catching rays of light with retina we project them, follow them as they bounce around the scene, collecting color information on the way.
+From the math point of view, rays are just a pair of two 3D vectors, one pointing to the origin of the ray, and the other being its direction.
+To follow the ray as it reflects around the scene we first have to find the closest object the ray hits (&quot;intersects&quot;) - the object with the smallest time of impact (<code>toi</code>).
+That requires iterating over all the objects, calculating intersection points in different ways depending on the object's shape.
+This is the most computationally expensive part of the rendering, the renderer spends most of its time doing basic math solving a lot of linear and quadratic equations.
+Once we find the closest object, we compute the object's surface normal at the point of impact (<code>poi</code>) and create a new ray with its origin at the point of impact and direction reflected using the normal.
+Each reflection adds to the final color of a pixel depending on the properties of the material at the point of impact.
+The cycle continues until either the surface we hit isn't reflective or the reflection depth limit has been reached.</p>
+
+
+<figure>
+    <img src="ray_tracing_2d.png" />
+    
+    <figcaption>..worth a thousand words</figcaption>
+    
+</figure>
+<p>Despite wanting to reinvent the wheel for no reason at all, I wasn't ready to <em>reinvent the wheel</em> yet, so after refreshing my memory with <a href="https://raytracing.github.io/books/RayTracingInOneWeekend.html">a tutorial</a> I set off looking for a library to do all the heavy lifting for me.
+Soon enough I found <a href="https://www.parry.rs/">parry</a>, part of the impressive <a href="https://dimforge.com/">Dimforge</a> family of numerical libraries.
+The 3D version of the library, parry3d, implements a <a href="https://docs.rs/parry3d/latest/parry3d/shape/index.html">wide array of shapes</a> and provides a method to intersect each of them with a ray, producing surface normals.
+That's, like, 2/3 of a ray tracer in a couple of imports, all I had to add was the material system to deal with reflection and color.
+The core of the renderer looked like this:</p>
+<p><sub> (all the parry3d types are explicitly qualified to show the extent I rely on the library) </sub></p>
+<pre data-lang="rust" style="background-color:#fafafa;color:#61676c;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#fa6e32;">pub struct </span><span style="color:#399ee6;">Body </span><span>{
+</span><span>    shape</span><span style="color:#61676ccc;">: </span><span style="font-style:italic;color:#55b4d4;">Box</span><span>&lt;dyn parry3d</span><span style="color:#ed9366;">::</span><span>shape</span><span style="color:#ed9366;">::</span><span>Shape&gt;,
+</span><span>    translation</span><span style="color:#61676ccc;">: </span><span>parry3d</span><span style="color:#ed9366;">::</span><span>math</span><span style="color:#ed9366;">::</span><span>Isometry&lt;parry3d</span><span style="color:#ed9366;">::</span><span>math</span><span style="color:#ed9366;">::</span><span>Real&gt;,
+</span><span>    material</span><span style="color:#61676ccc;">: </span><span style="font-style:italic;color:#55b4d4;">Box</span><span>&lt;dyn Material&gt;,
+</span><span>}
+</span><span>
+</span><span style="color:#fa6e32;">pub struct </span><span style="color:#399ee6;">Scene </span><span>{
+</span><span>    bodies</span><span style="color:#61676ccc;">: </span><span style="font-style:italic;color:#55b4d4;">Vec</span><span>&lt;Body&gt;,
+</span><span>}
+</span><span>
+</span><span style="color:#fa6e32;">impl </span><span style="color:#399ee6;">Scene </span><span>{
+</span><span>    </span><span style="color:#fa6e32;">pub fn </span><span style="color:#f29718;">ray_color</span><span>(</span><span style="color:#ed9366;">&amp;</span><span style="color:#ff8f40;">self</span><span>, </span><span style="color:#ff8f40;">ray</span><span style="color:#61676ccc;">: </span><span>parry3d</span><span style="color:#ed9366;">::</span><span>query</span><span style="color:#ed9366;">::</span><span>Ray, </span><span style="color:#ff8f40;">depth</span><span style="color:#61676ccc;">: </span><span style="color:#fa6e32;">u32</span><span>) </span><span style="color:#61676ccc;">-&gt;</span><span> Color {
+</span><span>        </span><span style="color:#fa6e32;">if</span><span> depth </span><span style="color:#ed9366;">== </span><span style="color:#ff8f40;">0 </span><span>{
+</span><span>            </span><span style="font-style:italic;color:#abb0b6;">// recursion&#39;s base case 
+</span><span>            </span><span style="color:#fa6e32;">return </span><span>Color</span><span style="color:#ed9366;">::</span><span>new(</span><span style="color:#ff8f40;">0.0</span><span style="color:#61676ccc;">, </span><span style="color:#ff8f40;">0.0</span><span style="color:#61676ccc;">, </span><span style="color:#ff8f40;">0.0</span><span>)</span><span style="color:#61676ccc;">;
+</span><span>        }
+</span><span>
+</span><span>        </span><span style="color:#fa6e32;">if let </span><span style="font-style:italic;color:#55b4d4;">Some</span><span>((body_idx</span><span style="color:#61676ccc;">,</span><span> intersection)) </span><span style="color:#ed9366;">= </span><span style="font-style:italic;color:#55b4d4;">self</span><span style="color:#ed9366;">.</span><span style="color:#f07171;">find_closest_body</span><span>(ray) {
+</span><span>            </span><span style="color:#fa6e32;">match </span><span style="font-style:italic;color:#55b4d4;">self</span><span style="color:#ed9366;">.</span><span>bodies[body_idx]</span><span style="color:#ed9366;">.</span><span>material</span><span style="color:#ed9366;">.</span><span style="color:#f07171;">interact_with_ray</span><span>(
+</span><span>                </span><span style="color:#ed9366;">&amp;</span><span>ray</span><span style="color:#61676ccc;">,
+</span><span>                ray</span><span style="color:#ed9366;">.</span><span style="color:#f07171;">point_at</span><span>(intersection</span><span style="color:#ed9366;">.</span><span>toi)</span><span style="color:#61676ccc;">,
+</span><span>                intersection</span><span style="color:#ed9366;">.</span><span>normal</span><span style="color:#61676ccc;">,
+</span><span>            ) {
+</span><span>                </span><span style="font-style:italic;color:#abb0b6;">// no reflection - no recursion
+</span><span>                RayInteractionResult</span><span style="color:#ed9366;">::</span><span>Colored(color) </span><span style="color:#ed9366;">=&gt;</span><span> color</span><span style="color:#61676ccc;">,
+</span><span>                RayInteractionResult</span><span style="color:#ed9366;">::</span><span>Reflected { ray</span><span style="color:#61676ccc;">,</span><span> coef</span><span style="color:#61676ccc;">,</span><span> offset } </span><span style="color:#ed9366;">=&gt; </span><span>{
+</span><span>                    </span><span style="font-style:italic;color:#abb0b6;">// recursion
+</span><span>                    offset </span><span style="color:#ed9366;">+</span><span> coef </span><span style="color:#ed9366;">* </span><span style="font-style:italic;color:#55b4d4;">self</span><span style="color:#ed9366;">.</span><span style="color:#f07171;">ray_color</span><span>(ray</span><span style="color:#61676ccc;">,</span><span> depth </span><span style="color:#ed9366;">- </span><span style="color:#ff8f40;">1</span><span>)
+</span><span>                }
+</span><span>            }
+</span><span>        } </span><span style="color:#fa6e32;">else </span><span>{
+</span><span>            </span><span style="font-style:italic;color:#55b4d4;">self</span><span style="color:#ed9366;">.</span><span style="color:#f07171;">ambient_color</span><span>(ray)
+</span><span>        }
+</span><span>    }
+</span><span>
+</span><span>    </span><span style="color:#fa6e32;">fn </span><span style="color:#f29718;">find_closest_body</span><span>(</span><span style="color:#ed9366;">&amp;</span><span style="color:#ff8f40;">self</span><span>, </span><span style="color:#ff8f40;">ray</span><span style="color:#61676ccc;">: </span><span>parry3d</span><span style="color:#ed9366;">::</span><span>query</span><span style="color:#ed9366;">::</span><span>Ray) </span><span style="color:#61676ccc;">-&gt;
+</span><span>            </span><span style="font-style:italic;color:#55b4d4;">Option</span><span>&lt;(</span><span style="color:#fa6e32;">usize</span><span>, parry3d</span><span style="color:#ed9366;">::</span><span>query</span><span style="color:#ed9366;">::</span><span>RayIntersection)&gt; {
+</span><span>        </span><span style="color:#fa6e32;">let mut</span><span> min_toi </span><span style="color:#ed9366;">= </span><span>std</span><span style="color:#ed9366;">::</span><span>f32</span><span style="color:#ed9366;">::</span><span style="color:#ff8f40;">MAX</span><span style="color:#61676ccc;">;
+</span><span>        </span><span style="color:#fa6e32;">let mut</span><span> closest_body </span><span style="color:#ed9366;">= </span><span style="font-style:italic;color:#55b4d4;">None</span><span style="color:#61676ccc;">;
+</span><span>        </span><span style="color:#fa6e32;">for </span><span>(body_idx</span><span style="color:#61676ccc;">,</span><span> body) </span><span style="color:#ed9366;">in </span><span style="font-style:italic;color:#55b4d4;">self</span><span style="color:#ed9366;">.</span><span>bodies</span><span style="color:#ed9366;">.</span><span style="color:#f07171;">iter</span><span>()</span><span style="color:#ed9366;">.</span><span style="color:#f07171;">enumerate</span><span>() {
+</span><span>            </span><span style="color:#fa6e32;">if let </span><span style="font-style:italic;color:#55b4d4;">Some</span><span>(intersection) </span><span style="color:#ed9366;">=
+</span><span>                    </span><span style="font-style:italic;color:#abb0b6;">// all the math happens here, thanks parry3d!
+</span><span>                    body</span><span style="color:#ed9366;">.</span><span>shape</span><span style="color:#ed9366;">.</span><span style="color:#f07171;">cast_ray_and_get_normal</span><span>( 
+</span><span>                        </span><span style="color:#ed9366;">&amp;</span><span>body</span><span style="color:#ed9366;">.</span><span>translation</span><span style="color:#61676ccc;">,
+</span><span>                        </span><span style="color:#ed9366;">&amp;</span><span>ray</span><span style="color:#61676ccc;">,
+</span><span>                        min_toi</span><span style="color:#61676ccc;">, 
+</span><span>                        </span><span style="color:#ff8f40;">true</span><span style="color:#61676ccc;">,
+</span><span>                    ) {
+</span><span>                min_toi </span><span style="color:#ed9366;">=</span><span> intersection</span><span style="color:#ed9366;">.</span><span>toi</span><span style="color:#61676ccc;">;
+</span><span>                closest_body </span><span style="color:#ed9366;">= </span><span style="font-style:italic;color:#55b4d4;">Some</span><span>((body_idx</span><span style="color:#61676ccc;">,</span><span> intersection))</span><span style="color:#61676ccc;">;
+</span><span>            }
+</span><span>        }
+</span><span>        closest_body
+</span><span>    }
+</span><span>}
+</span></code></pre>
+<p>Putting it all together, I got this beauty:</p>
+
+
+<figure>
+    <img src="generic_rt.png" />
+    
+    <figcaption>Smooth yet useless.</figcaption>
+    
+</figure>
+<p>It took 1.8s to render a box with a ball in it, so if I were to go full multicore at this point I would have needed a 110-core CPU for my game to produce the respectable 60fps.
+Something had to be done.</p>
+<h1 id="cutting-the-corners">Cutting the corners</h1>
+<p>First let's point out some obvious performance pitfalls in the code above:</p>
+<ul>
+<li><code>dyn Traits</code>.
+That's an easy one: virtual methods confuse pipelining, branch predictor and prevent inlining.
+Calling them several times for each pixel adds up very quickly.</li>
+<li>Recursion.
+<code>Scene::ray_color</code> is recursive but not <a href="https://en.wikipedia.org/wiki/Tail_call">tail recursive</a>, so the compiler is unlikely to replace it with a loop, leaving us with a full-blown function call, stack frame allocating, argument passing, result returning and all that.</li>
+<li>Generality.
+<code>parry3d</code> is an excellent library with a lot of functionality, but that requires more general code than we actually need. And generality comes at cost.</li>
+<li>A lot of RNG.
+Not shown above, but the material calculations required a lot of randomness, and RNG is slow.</li>
+</ul>
+<p>Now lets look again at the original game we're trying to clone:</p>
+<ul>
+<li>The only two types of shapes we need are an axis-aligned infinite plane and a sphere. No, we don't need boxes to draw paddles, we can emulate them with <a href="https://en.wikipedia.org/wiki/Spherical_cap">spherical caps</a>.</li>
+<li>Perfect metallic reflection is good enough for all surfaces just because.</li>
+<li>The number of objects is known in advance. 
+The positions of planes and their normals are fixed.</li>
+<li>Tracing happens inside the box, meaning a ray <em>has</em> to hit something eventually.</li>
+</ul>
+<p>With all this in mind I started off again. 
+Every object got an entry in the <code>Obstacle</code> enum, with all the properties stored in several <code>const</code> arrays.
+Intersecting an axis-aligned plane was reduced to a one-dimensional equation, and intersection of all the planes became a cascade of <code>if</code>s, one for each dimension.</p>
+<pre data-lang="rust" style="background-color:#fafafa;color:#61676c;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="font-style:italic;color:#abb0b6;">// Intersecting planes along the X axis
+</span><span style="color:#fa6e32;">if</span><span> ray</span><span style="color:#ed9366;">.</span><span>dir[</span><span style="color:#ff8f40;">0</span><span>]</span><span style="color:#ed9366;">.</span><span style="color:#f07171;">abs</span><span>() </span><span style="color:#ed9366;">&gt; </span><span style="color:#ff8f40;">EPSILON </span><span>{
+</span><span>    </span><span style="color:#fa6e32;">if</span><span> ray</span><span style="color:#ed9366;">.</span><span>dir[</span><span style="color:#ff8f40;">0</span><span>] </span><span style="color:#ed9366;">&gt; </span><span style="color:#ff8f40;">0.0 </span><span>{
+</span><span>        </span><span style="color:#fa6e32;">let</span><span> toi </span><span style="color:#ed9366;">= </span><span>(</span><span style="color:#ff8f40;">OBSTACLE_OFFSETS</span><span>[Obstacle</span><span style="color:#ed9366;">::</span><span>Right </span><span style="color:#ed9366;">as </span><span style="color:#fa6e32;">usize</span><span>] </span><span style="color:#ed9366;">-</span><span> ray</span><span style="color:#ed9366;">.</span><span>origin[</span><span style="color:#ff8f40;">0</span><span>])
+</span><span>            </span><span style="color:#ed9366;">/</span><span> ray</span><span style="color:#ed9366;">.</span><span>dir[</span><span style="color:#ff8f40;">0</span><span>]</span><span style="color:#61676ccc;">;
+</span><span>        </span><span style="color:#fa6e32;">if</span><span> toi </span><span style="color:#ed9366;">&lt;</span><span> min_toi {
+</span><span>            min_toi </span><span style="color:#ed9366;">=</span><span> toi</span><span style="color:#61676ccc;">;
+</span><span>            closest_obstacle </span><span style="color:#ed9366;">= </span><span style="font-style:italic;color:#55b4d4;">Some</span><span>(Obstacle</span><span style="color:#ed9366;">::</span><span>Right)</span><span style="color:#61676ccc;">;
+</span><span>        }
+</span><span>    } </span><span style="color:#fa6e32;">else </span><span>{
+</span><span>        </span><span style="color:#fa6e32;">let</span><span> toi </span><span style="color:#ed9366;">= </span><span>(</span><span style="color:#ff8f40;">OBSTACLE_OFFSETS</span><span>[Obstacle</span><span style="color:#ed9366;">::</span><span>Left </span><span style="color:#ed9366;">as </span><span style="color:#fa6e32;">usize</span><span>] </span><span style="color:#ed9366;">-</span><span> ray</span><span style="color:#ed9366;">.</span><span>origin[</span><span style="color:#ff8f40;">0</span><span>])
+</span><span>            </span><span style="color:#ed9366;">/</span><span> ray</span><span style="color:#ed9366;">.</span><span>dir[</span><span style="color:#ff8f40;">0</span><span>]</span><span style="color:#61676ccc;">;
+</span><span>        </span><span style="color:#fa6e32;">if</span><span> toi </span><span style="color:#ed9366;">&lt;</span><span> min_toi {
+</span><span>            min_toi </span><span style="color:#ed9366;">=</span><span> toi</span><span style="color:#61676ccc;">;
+</span><span>            closest_obstacle </span><span style="color:#ed9366;">= </span><span style="font-style:italic;color:#55b4d4;">Some</span><span>(Obstacle</span><span style="color:#ed9366;">::</span><span>Left)</span><span style="color:#61676ccc;">;
+</span><span>        }
+</span><span>    }
+</span><span>}
+</span></code></pre>
+<p>Unfortunately spheres are already perfect, so I still had to eat up the cost of solving a quadratic equation.
+On each step we updated the closest obstacle so far, and in the end we used it to produce the normal and the colors.</p>
+<pre data-lang="rust" style="background-color:#fafafa;color:#61676c;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#fa6e32;">if let </span><span style="font-style:italic;color:#55b4d4;">Some</span><span>(obstacle) </span><span style="color:#ed9366;">=</span><span> closest_obstacle {
+</span><span>    </span><span style="color:#fa6e32;">let</span><span> poi </span><span style="color:#ed9366;">=</span><span> ray</span><span style="color:#ed9366;">.</span><span style="color:#f07171;">point_at</span><span>(min_toi)</span><span style="color:#61676ccc;">;
+</span><span>    </span><span style="color:#fa6e32;">let</span><span> normal</span><span style="color:#61676ccc;">;
+</span><span>    </span><span style="color:#fa6e32;">if</span><span> obstacle </span><span style="color:#ed9366;">== </span><span>Obstacle</span><span style="color:#ed9366;">::</span><span>Sphere {
+</span><span>        normal </span><span style="color:#ed9366;">= </span><span style="font-style:italic;color:#55b4d4;">self</span><span style="color:#ed9366;">.</span><span style="color:#f07171;">sphere_normal</span><span>(</span><span style="color:#ed9366;">&amp;</span><span>poi)</span><span style="color:#61676ccc;">;
+</span><span>    } </span><span style="color:#fa6e32;">else </span><span>{
+</span><span>        normal </span><span style="color:#ed9366;">= </span><span style="color:#ff8f40;">OBSTACLE_NORMALS</span><span>[obstacle </span><span style="color:#ed9366;">as </span><span style="color:#fa6e32;">usize</span><span>]</span><span style="color:#61676ccc;">;
+</span><span>    }
+</span><span>    </span><span style="color:#fa6e32;">let</span><span> reflection_dir </span><span style="color:#ed9366;">=</span><span> ray</span><span style="color:#ed9366;">.</span><span>dir </span><span style="color:#ed9366;">- </span><span style="color:#ff8f40;">2.0 </span><span style="color:#ed9366;">*</span><span> ray</span><span style="color:#ed9366;">.</span><span>dir</span><span style="color:#ed9366;">.</span><span style="color:#f07171;">dot</span><span>(</span><span style="color:#ed9366;">&amp;</span><span>normal) </span><span style="color:#ed9366;">*</span><span> normal</span><span style="color:#61676ccc;">;
+</span><span>    ray </span><span style="color:#ed9366;">=</span><span> Ray {
+</span><span>        origin</span><span style="color:#61676ccc;">:</span><span> poi</span><span style="color:#61676ccc;">,
+</span><span>        dir</span><span style="color:#61676ccc;">:</span><span> reflection_dir</span><span style="color:#61676ccc;">,
+</span><span>    }</span><span style="color:#61676ccc;">;
+</span><span>    offset_color </span><span style="color:#ed9366;">+=</span><span> coef_color </span><span style="color:#ed9366;">* </span><span style="color:#ff8f40;">OBSTACLE_COLORS</span><span>[obstacle </span><span style="color:#ed9366;">as </span><span style="color:#fa6e32;">usize</span><span>]</span><span style="color:#61676ccc;">;
+</span><span>    coef_color </span><span style="color:#ed9366;">*= </span><span>Color</span><span style="color:#ed9366;">::</span><span>new(</span><span style="color:#ff8f40;">0.5</span><span style="color:#61676ccc;">, </span><span style="color:#ff8f40;">0.5</span><span style="color:#61676ccc;">, </span><span style="color:#ff8f40;">0.5</span><span>)</span><span style="color:#61676ccc;">;
+</span><span>}
+</span></code></pre>
+<p>The recursion was replaced with straight-up iteration with <code>offset_color</code> and <code>coef_color</code> used to store intermediate color state. 
+The result was beautiful.
+
+
+<figure>
+    <img src="fixed_rt.png" />
+    
+    <figcaption>Reflections galore</figcaption>
+    
+</figure></p>
+<p>Taking only 300ms to produce, the speed-up was an impressive 6x, but 3fps still isn't enough.
+So what's next?</p>
+<p>Ray tracing is what they call an <a href="https://en.wikipedia.org/wiki/Embarrassingly_parallel">embarrassingly parallel problem</a> - each ray bounces around independently making no changes to the global state, returning a scalar value, making it possible to compute each of them in parallel with no coordination costs.
+Keeping in mind that <a href="http://www.gotw.ca/publications/concurrency-ddj.htm">the free lunch has been over</a> for 17 years, by now we all know the drill - it's time to go wide core-wise, right?
+Wrong, there's still a way to exploit the embarrassing parallelism on a single core.</p>
+<h1 id="getting-to-know-portable-simd">Getting to know <code>portable-simd</code></h1>
+<p>Most modern CPUs have a way to operate on several values simultaneously, provided they are packed in vector registers.
+With special instructions you can tell the CPU to treat such a vector register, say 256 bits wide, as eight 32-bit floats, and to add them to another eight floats stored in another vector register.
+That's 8 operations at the cost of one (not really, but close enough).
+The approach is called SIMD, after <a href="https://en.wikipedia.org/wiki/Single_instruction,_multiple_data">Single Instruction, Multiple Data</a>.</p>
+<p>SIMD extensions have been a thing for 25+ years now, most ISA have them, wasm including.
+The most recent on <code>x86-64</code> being <code>avx</code> and <code>avx-512</code>, providing 256- and 512-bit wide vector registers respectively.
+You can safely bet on a modern PC to support at least the former, providing you with a way to manipulate these 256 bits as 32 bytes, 8 floats or 4 doubles simultaneously.
+These individual scalar values inside a vector register are called &quot;lanes&quot;.</p>
+<p>As a regular programmer you don't usually interact with SIMD directly, and for good reasons:</p>
+<ul>
+<li>Most tasks are linear and have nothing to gain from SIMD.</li>
+<li>Many of those which do can be auto-vectorized by a modern compiler with no special effort required.</li>
+<li>SIMD code is arch-specific and ISA-version specific, so not only you have to use <a href="https://www.laruence.com/sse/">compiler intrinsics</a> with names like <code>_mm512_mask_4dpwssds_epi32</code>, your code is now full of <code>unsafe</code> and tied to a specific version of SIMD for a specific architecture. <code>avx-512</code> code won't work on older <code>x86-64</code> CPUs and can't be easily ported to <code>aarch64</code> or even <code>avx-1024</code> once it's out.</li>
+</ul>
+<p>Now, the first two points don't apply to our task at hand - ray tracing has a lot to gain from SIMD, and the compiler isn't able to auto-vectorize the code.
+The last issue can be solved the same way any problem in Software Engineering can be solved - by adding yet another abstraction layer, in this case that would be <code>portable-simd</code>.</p>
+<p><a href="https://github.com/rust-lang/portable-simd"><code>portable-simd</code></a> is an effort to bring ergonomic SIMD to the Rust standard library.
+Currently, it's unstable and requires the <code>nightly</code> toolchain.
+You can actually write SIMD code in stable Rust by using intrinsics from <a href="https://doc.rust-lang.org/std/arch/index.html"><code>std::arch</code></a>, but it has all the downsides described above.</p>
+<p>Using the library is very straightforward: all the magic happens in the <a href="https://doc.rust-lang.org/std/simd/struct.Simd.html">Simd struct</a>, which implements traits from <code>std::ops</code> such as <code>Add</code> and <code>Mul</code>, in addition to SIMD-specific methods like <code>reduce_sum</code>.
+This way you can define, say, <code>type Reals = Simd&lt;f32, 8&gt;</code>, a vector type consisting of 8 lanes of <code>f32</code> floats, and then use the values of this type as if they were scalar (thanks, operator overloading!):</p>
+<pre data-lang="rust" style="background-color:#fafafa;color:#61676c;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#fa6e32;">fn </span><span style="color:#f29718;">foo</span><span>(</span><span style="color:#ff8f40;">a</span><span style="color:#61676ccc;">:</span><span> Reals, </span><span style="color:#ff8f40;">b</span><span style="color:#61676ccc;">:</span><span> Reals) </span><span style="color:#61676ccc;">-&gt;</span><span> Reals {
+</span><span>    (a </span><span style="color:#ed9366;">+</span><span> b </span><span style="color:#ed9366;">*</span><span> b)</span><span style="color:#ed9366;">.</span><span style="color:#f07171;">sqrt</span><span>()
+</span><span>}
+</span></code></pre>
+<p>With <code>-C target-cpu=native -C opt-level=3</code> this results in </p>
+<pre data-lang="asm" style="background-color:#fafafa;color:#61676c;" class="language-asm "><code class="language-asm" data-lang="asm"><span style="color:#f29718;">example::foo:        
+</span><span style="color:#f29718;">    </span><span style="color:#fa6e32;">mov     </span><span style="color:#ff8f40;">rax</span><span>, </span><span style="color:#ff8f40;">rdi
+</span><span style="color:#f29718;">    </span><span style="color:#fa6e32;">vmovaps </span><span style="color:#ff8f40;">ymm0</span><span>, </span><span style="color:#f29718;">ymmword </span><span style="color:#f07171;">ptr </span><span>[</span><span style="color:#ff8f40;">rdx</span><span>]</span><span style="font-style:italic;color:#abb0b6;">       ; Load the second argument to ymm0
+</span><span style="color:#f29718;">    </span><span style="color:#fa6e32;">vmulps  </span><span style="color:#ff8f40;">ymm0</span><span>, </span><span style="color:#ff8f40;">ymm0</span><span>, </span><span style="color:#ff8f40;">ymm0</span><span style="font-style:italic;color:#abb0b6;">              ; Multiply each lane by itself
+</span><span style="color:#f29718;">    </span><span style="color:#fa6e32;">vaddps  </span><span style="color:#ff8f40;">ymm0</span><span>, </span><span style="color:#ff8f40;">ymm0</span><span>, </span><span style="color:#f29718;">ymmword </span><span style="color:#f07171;">ptr </span><span>[</span><span style="color:#ff8f40;">rsi</span><span>]</span><span style="font-style:italic;color:#abb0b6;"> ; Add the first argument to it lane-wise
+</span><span style="color:#f29718;">    </span><span style="color:#fa6e32;">vsqrtps </span><span style="color:#ff8f40;">ymm0</span><span>, </span><span style="color:#ff8f40;">ymm0</span><span style="font-style:italic;color:#abb0b6;">                    ; Compute square roots for each lane
+</span><span style="color:#f29718;">    </span><span style="color:#fa6e32;">vmovaps </span><span style="color:#f29718;">ymmword </span><span style="color:#f07171;">ptr </span><span>[</span><span style="color:#ff8f40;">rdi</span><span>], </span><span style="color:#ff8f40;">ymm0</span><span style="font-style:italic;color:#abb0b6;">       ; Save the results
+</span><span style="color:#f29718;">    </span><span style="color:#fa6e32;">vzeroupper
+</span><span style="color:#f29718;">    </span><span style="color:#fa6e32;">ret
+</span></code></pre>
+<p>If you don't know assembly here's the key - instructions with the <code>ps</code> suffix treat their arguments - 256-bit <code>ymm</code> registers in this case - as <code>p</code>arallel (i.e. vectors of) <code>s</code>ingle-percision values (i.e. 32-bit <code>float</code>s).
+In other words, in the code above each <code>v*ps</code> instruction makes 8 operations simultaneously.</p>
+<p>The library makes the best effort to match the specific <code>Simd</code> type to the underlying SIMD architecture.
+In case of wasm with the <code>simd128</code> extension or <code>x86</code> with the <code>SSE2</code> extension the code above will use two 128-bit registers.
+If the target platform has no SIMD at all, the library will emulate it with scalar operations, so the code above can be compiled with <code>-C target-cpu=pentium</code>, a CPU with no SIMD capabilities, the result being four dozens x87 instructions - not fast, but good enough to do the math.</p>
+<p>Programming isn't just pure math, tho - there's also branching, a way to change control flow based on some condition.
+It works for scalar values, but with SIMD you have multiple values sharing the same control flow, you can't change it only for some of them.
+Say you need to double all the lanes which are below 100.0. 
+Sure enough, <code>Simd</code> implements <code>Index</code> and <code>IndexMut</code>, so you can brute force it with</p>
+<pre data-lang="rust" style="background-color:#fafafa;color:#61676c;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#fa6e32;">fn </span><span style="color:#f29718;">bar</span><span>(</span><span style="color:#fa6e32;">mut </span><span style="color:#ff8f40;">a</span><span style="color:#61676ccc;">:</span><span> Reals) </span><span style="color:#61676ccc;">-&gt;</span><span> Reals {
+</span><span>    </span><span style="font-style:italic;color:#abb0b6;">// Don&#39;t do this
+</span><span>    </span><span style="color:#fa6e32;">for</span><span> i </span><span style="color:#ed9366;">in </span><span style="color:#ff8f40;">0</span><span style="color:#ed9366;">..</span><span style="color:#ff8f40;">8 </span><span>{
+</span><span>        </span><span style="color:#fa6e32;">if</span><span> a[i] </span><span style="color:#ed9366;">&lt; </span><span style="color:#ff8f40;">100.0 </span><span>{
+</span><span>            a[i] </span><span style="color:#ed9366;">*= </span><span style="color:#ff8f40;">2.0</span><span style="color:#61676ccc;">;
+</span><span>        }
+</span><span>    }
+</span><span>    a
+</span><span>}
+</span></code></pre>
+<p>With <code>-C target-cpu=native -C opt-level=3</code> this compiles to</p>
+<pre data-lang="asm" style="background-color:#fafafa;color:#61676c;" class="language-asm "><code class="language-asm" data-lang="asm"><span style="color:#f29718;">example::bar:
+</span><span style="color:#f29718;">    </span><span style="color:#fa6e32;">mov      </span><span style="color:#ff8f40;">rax</span><span>, </span><span style="color:#ff8f40;">rdi
+</span><span style="color:#f29718;">    </span><span style="color:#fa6e32;">vmovss   </span><span style="color:#ff8f40;">xmm1</span><span>, </span><span style="color:#f07171;">dword ptr </span><span>[</span><span style="color:#ff8f40;">rsi</span><span>]
+</span><span style="color:#f29718;">    </span><span style="color:#fa6e32;">vmovss   </span><span style="color:#ff8f40;">xmm0</span><span>, </span><span style="color:#f07171;">dword ptr </span><span>[</span><span style="color:#ff8f40;">rip </span><span>+ </span><span style="color:#f29718;">.LCPI1_0</span><span>]
+</span><span style="color:#f29718;">    </span><span style="color:#fa6e32;">vucomiss </span><span style="color:#ff8f40;">xmm0</span><span>, </span><span style="color:#ff8f40;">xmm1
+</span><span style="color:#f29718;">    </span><span style="color:#fa6e32;">ja       </span><span style="color:#f29718;">.LBB1_16
+</span><span style="color:#f29718;">    </span><span style="color:#fa6e32;">vmovss   </span><span style="color:#ff8f40;">xmm1</span><span>, </span><span style="color:#f07171;">dword ptr </span><span>[</span><span style="color:#ff8f40;">rsi </span><span>+ </span><span style="color:#ff8f40;">4</span><span>]
+</span><span style="color:#f29718;">    </span><span style="color:#fa6e32;">vucomiss </span><span style="color:#ff8f40;">xmm0</span><span>, </span><span style="color:#ff8f40;">xmm1
+</span><span style="color:#f29718;">    </span><span style="color:#fa6e32;">ja       </span><span style="color:#f29718;">.LBB1_2
+</span><span style="color:#f29718;">.LBB1_3:
+</span><span style="color:#f29718;">    </span><span style="color:#fa6e32;">vmovss   </span><span style="color:#ff8f40;">xmm1</span><span>, </span><span style="color:#f07171;">dword ptr </span><span>[</span><span style="color:#ff8f40;">rsi </span><span>+ </span><span style="color:#ff8f40;">8</span><span>]
+</span><span style="color:#f29718;">    </span><span style="color:#fa6e32;">vucomiss </span><span style="color:#ff8f40;">xmm0</span><span>, </span><span style="color:#ff8f40;">xmm1
+</span><span style="color:#f29718;">    </span><span style="color:#fa6e32;">ja       </span><span style="color:#f29718;">.LBB1_4
+</span><span style="color:#f29718;">.LBB1_5:
+</span><span style="color:#f29718;">    </span><span style="color:#fa6e32;">vmovss   </span><span style="color:#ff8f40;">xmm1</span><span>, </span><span style="color:#f07171;">dword ptr </span><span>[</span><span style="color:#ff8f40;">rsi </span><span>+ </span><span style="color:#ff8f40;">12</span><span>]
+</span><span style="color:#f29718;">    </span><span style="color:#fa6e32;">vucomiss </span><span style="color:#ff8f40;">xmm0</span><span>, </span><span style="color:#ff8f40;">xmm1
+</span><span style="color:#f29718;">    </span><span style="color:#fa6e32;">ja       </span><span style="color:#f29718;">.LBB1_6
+</span><span style="font-style:italic;color:#abb0b6;">    ; This goes on for 70+ lines
+</span></code></pre>
+<p>Thanks to loop unrolling by the compiler, we have 15 comparisons (<code>vucomiss</code>) and 15 branching (the <code>j*</code>) instructions, each ready to mess with the branch predictor.
+You can see by the <code>ss</code> suffix that the instructions treat each vector register as a <code>s</code>calar <code>s</code>ingle-percision value, meaning we've lost all the benefits of SIMD.</p>
+<p>The solution to make branching in SIMD code efficient is very simple - just have no branches, write code linearly, with no <code>if</code>s.
+Instead, use the other magic type from <code>portable-simd</code> - <a href="https://doc.rust-lang.org/std/simd/struct.Mask.html">Mask struct</a>.
+<code>Mask</code> treats a vector register as a number of <code>bool</code>s, one corresponding to each lane in the <code>Simd</code> type.
+When you compare the values of the latter lane-wise you get an instance of the <code>Mask</code> type, which you can then use to conditionally move values around, skipping these with <code>false</code> in their lane:</p>
+<pre data-lang="rust" style="background-color:#fafafa;color:#61676c;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#fa6e32;">fn </span><span style="color:#f29718;">bar</span><span>(</span><span style="color:#ff8f40;">a</span><span style="color:#61676ccc;">:</span><span> Reals) </span><span style="color:#61676ccc;">-&gt;</span><span> Reals {
+</span><span>    </span><span style="color:#fa6e32;">let</span><span> mask </span><span style="color:#ed9366;">=</span><span> a</span><span style="color:#ed9366;">.</span><span style="color:#f07171;">simd_lt</span><span>(Reals</span><span style="color:#ed9366;">::</span><span>splat(</span><span style="color:#ff8f40;">100.0</span><span>))</span><span style="color:#61676ccc;">; </span><span style="font-style:italic;color:#abb0b6;">// &quot;lt&quot; = less than
+</span><span>    </span><span style="color:#fa6e32;">let</span><span> doubled_a </span><span style="color:#ed9366;">=</span><span> a </span><span style="color:#ed9366;">* </span><span>Reals</span><span style="color:#ed9366;">::</span><span>splat(</span><span style="color:#ff8f40;">2.0</span><span>)</span><span style="color:#61676ccc;">;
+</span><span>    mask</span><span style="color:#ed9366;">.</span><span style="color:#f07171;">select</span><span>(doubled_a</span><span style="color:#61676ccc;">,</span><span> a)
+</span><span>}
+</span></code></pre>
+<p>In the code above we first produce <code>mask</code>, comparing each lane with 100.0, and then <code>select</code> lanes from either <code>a</code> or <code>doubled_a</code> based on the lanes in <code>Mask</code>.
+This way no branching in the control flow occurs - we double all the lanes, even those above 100.0, we just don't use the results we don't need.
+In a way, it's a waste of computing resources, but assuming all the doubling happens in parallel, we don't waste any execution time.
+Comparing to the first attempt the assembly is tiny and efficient:</p>
+<pre data-lang="asm" style="background-color:#fafafa;color:#61676c;" class="language-asm "><code class="language-asm" data-lang="asm"><span style="color:#f29718;">example::bar:
+</span><span style="color:#f29718;">    </span><span style="color:#fa6e32;">vmovaps  </span><span style="color:#ff8f40;">ymm0</span><span>, </span><span style="color:#f29718;">ymmword </span><span style="color:#f07171;">ptr </span><span>[</span><span style="color:#ff8f40;">rsi</span><span>]</span><span style="font-style:italic;color:#abb0b6;">  ; Load the argument to ymm0
+</span><span style="color:#f29718;">    </span><span style="color:#fa6e32;">mov      </span><span style="color:#ff8f40;">rax</span><span>, </span><span style="color:#ff8f40;">rdi
+</span><span style="font-style:italic;color:#abb0b6;">    ; Compare values in ymm0 to a constant in memory, save to the mask
+</span><span style="color:#f29718;">    vcmpltps k1</span><span>, </span><span style="color:#ff8f40;">ymm0</span><span>, </span><span style="color:#f07171;">dword ptr </span><span>[</span><span style="color:#ff8f40;">rip </span><span>+ </span><span style="color:#f29718;">.LCPI2_0</span><span>]</span><span style="color:#f29718;">{1to8}
+</span><span style="font-style:italic;color:#abb0b6;">    ; Save the sum only to the lanes matching the mask
+</span><span style="color:#f29718;">    </span><span style="color:#fa6e32;">vaddps   </span><span style="color:#ff8f40;">ymm0 </span><span style="color:#f29718;">{k1}</span><span>, </span><span style="color:#ff8f40;">ymm0</span><span>, </span><span style="color:#ff8f40;">ymm0
+</span><span style="font-style:italic;color:#abb0b6;">    ; Save the result
+</span><span style="color:#f29718;">    </span><span style="color:#fa6e32;">vmovaps  </span><span style="color:#f29718;">ymmword </span><span style="color:#f07171;">ptr </span><span>[</span><span style="color:#ff8f40;">rdi</span><span>], </span><span style="color:#ff8f40;">ymm0
+</span><span style="color:#f29718;">    </span><span style="color:#fa6e32;">vzeroupper
+</span><span style="color:#f29718;">    </span><span style="color:#fa6e32;">ret
+</span></code></pre>
+<p>Even in edge cases, say when all the lanes are above 100.0, there's sometime no point in explicit branching (which we can do with <code>if mask.any()</code>) - it messes up the instruction pipelining, and the overall performance may be worse.
+So that's the way you use SIMD - compute all the values and then keep only the ones you need.</p>
+<h1 id="circling-back">Circling back</h1>
+<p>With all this knowledge I went back to redesigning <code>ray-ten</code> around <code>portable-simd</code>.
+The renderer being already extremely dumbed-down, methods provided by the <code>Simd</code> type were just enough.
+First, the basic types</p>
+<pre data-lang="rust" style="background-color:#fafafa;color:#61676c;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#fa6e32;">pub const </span><span style="color:#ff8f40;">LANES</span><span style="color:#61676ccc;">: </span><span style="color:#fa6e32;">usize </span><span style="color:#ed9366;">= </span><span style="color:#ff8f40;">8</span><span style="color:#fa6e32;">usize</span><span style="color:#61676ccc;">;
+</span><span>
+</span><span style="color:#fa6e32;">pub type </span><span style="color:#399ee6;">Real </span><span style="color:#ed9366;">= </span><span style="color:#fa6e32;">f32</span><span style="color:#61676ccc;">;
+</span><span style="color:#fa6e32;">pub type </span><span style="color:#399ee6;">Reals </span><span style="color:#ed9366;">= </span><span>Simd&lt;Real, LANES&gt;</span><span style="color:#61676ccc;">;
+</span><span style="color:#fa6e32;">pub type </span><span style="color:#399ee6;">Mask </span><span style="color:#ed9366;">= </span><span>SimdMask&lt;</span><span style="color:#fa6e32;">i32</span><span>, LANES&gt;</span><span style="color:#61676ccc;">;
+</span><span>
+</span><span style="color:#fa6e32;">pub struct </span><span style="color:#399ee6;">Points </span><span>{
+</span><span>    </span><span style="color:#fa6e32;">pub </span><span>xs</span><span style="color:#61676ccc;">:</span><span> Reals,
+</span><span>    </span><span style="color:#fa6e32;">pub </span><span>ys</span><span style="color:#61676ccc;">:</span><span> Reals,
+</span><span>    </span><span style="color:#fa6e32;">pub </span><span>zs</span><span style="color:#61676ccc;">:</span><span> Reals,
+</span><span>}
+</span><span>
+</span><span style="color:#fa6e32;">pub type </span><span style="color:#399ee6;">Colors </span><span style="color:#ed9366;">=</span><span> Points</span><span style="color:#61676ccc;">;
+</span><span style="color:#fa6e32;">pub type </span><span style="color:#399ee6;">Vectors </span><span style="color:#ed9366;">=</span><span> Points</span><span style="color:#61676ccc;">;
+</span><span>
+</span><span style="color:#fa6e32;">pub struct </span><span style="color:#399ee6;">Rays </span><span>{
+</span><span>    </span><span style="color:#fa6e32;">pub </span><span>origins</span><span style="color:#61676ccc;">:</span><span> Points,
+</span><span>    </span><span style="color:#fa6e32;">pub </span><span>dirs</span><span style="color:#61676ccc;">:</span><span> Vectors,
+</span><span>}
+</span><span>
+</span><span style="font-style:italic;color:#abb0b6;">//Lots of Add/Mul/Div implementations
+</span></code></pre>
+<p>As a side note, these are large types, <code>Rays</code> being 2 * 3 * 8 * 4 = 192 bytes.
+My first instinct was to pass them around via references, which made doing math with them very awkward.
+So I switched to passing them around by value and to my surprise the performance stayed the same - apparently most operations were inlined anyway, so no actual passing was taking place.
+And when it did, the compiler was smart enough to use 6 vector registers to pass <code>Rays</code> values around.</p>
+<p>Now I was tracing <code>LANES</code> rays at the same time.
+After I encapsulated all the math and the state in a separate type, the tracing function finally started to look sane:</p>
+<pre data-lang="rust" style="background-color:#fafafa;color:#61676c;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#fa6e32;">pub fn </span><span style="color:#f29718;">trace_rays</span><span>(</span><span style="color:#ff8f40;">scene</span><span style="color:#61676ccc;">: </span><span style="color:#ed9366;">&amp;</span><span>Scene, </span><span style="color:#ff8f40;">rays</span><span style="color:#61676ccc;">:</span><span> Rays, </span><span style="color:#ff8f40;">max_depth</span><span style="color:#61676ccc;">: </span><span style="color:#fa6e32;">usize</span><span>) </span><span style="color:#61676ccc;">-&gt;</span><span> Colors {
+</span><span>    </span><span style="color:#fa6e32;">let mut</span><span> projections </span><span style="color:#ed9366;">= </span><span>RaysProjections</span><span style="color:#ed9366;">::</span><span>new(scene</span><span style="color:#61676ccc;">,</span><span> rays</span><span style="color:#61676ccc;">,</span><span> max_depth)</span><span style="color:#61676ccc;">;
+</span><span>    </span><span style="color:#fa6e32;">loop </span><span>{
+</span><span>        projections</span><span style="color:#ed9366;">.</span><span style="color:#f07171;">intersect_with_sphere</span><span>(Sphere</span><span style="color:#ed9366;">::</span><span>Ball)</span><span style="color:#61676ccc;">;
+</span><span>        projections</span><span style="color:#ed9366;">.</span><span style="color:#f07171;">intersect_with_sphere</span><span>(Sphere</span><span style="color:#ed9366;">::</span><span>NearPaddle)</span><span style="color:#61676ccc;">;
+</span><span>        projections</span><span style="color:#ed9366;">.</span><span style="color:#f07171;">intersect_with_sphere</span><span>(Sphere</span><span style="color:#ed9366;">::</span><span>FarPaddle)</span><span style="color:#61676ccc;">;
+</span><span>        projections</span><span style="color:#ed9366;">.</span><span style="color:#f07171;">intersect_with_aa_plane</span><span>(Plane</span><span style="color:#ed9366;">::</span><span>Top)</span><span style="color:#61676ccc;">;
+</span><span>        projections</span><span style="color:#ed9366;">.</span><span style="color:#f07171;">intersect_with_aa_plane</span><span>(Plane</span><span style="color:#ed9366;">::</span><span>Bottom)</span><span style="color:#61676ccc;">;
+</span><span>        projections</span><span style="color:#ed9366;">.</span><span style="color:#f07171;">intersect_with_aa_plane</span><span>(Plane</span><span style="color:#ed9366;">::</span><span>Left)</span><span style="color:#61676ccc;">;
+</span><span>        projections</span><span style="color:#ed9366;">.</span><span style="color:#f07171;">intersect_with_aa_plane</span><span>(Plane</span><span style="color:#ed9366;">::</span><span>Right)</span><span style="color:#61676ccc;">;
+</span><span>        projections</span><span style="color:#ed9366;">.</span><span style="color:#f07171;">intersect_with_aa_plane</span><span>(Plane</span><span style="color:#ed9366;">::</span><span>Near)</span><span style="color:#61676ccc;">;
+</span><span>        projections</span><span style="color:#ed9366;">.</span><span style="color:#f07171;">intersect_with_aa_plane</span><span>(Plane</span><span style="color:#ed9366;">::</span><span>Far)</span><span style="color:#61676ccc;">;
+</span><span>        </span><span style="color:#fa6e32;">if</span><span> projections</span><span style="color:#ed9366;">.</span><span style="color:#f07171;">reflect</span><span>() {
+</span><span>            </span><span style="color:#fa6e32;">break</span><span style="color:#61676ccc;">;
+</span><span>        }
+</span><span>    }
+</span><span>    projections</span><span style="color:#ed9366;">.</span><span style="color:#f07171;">finish</span><span>(Colors</span><span style="color:#ed9366;">::</span><span>splat(</span><span style="color:#ff8f40;">1.0</span><span style="color:#61676ccc;">, </span><span style="color:#ff8f40;">1.0</span><span style="color:#61676ccc;">, </span><span style="color:#ff8f40;">1.0</span><span>))
+</span><span>}
+</span></code></pre>
+<p>Using two loops here had a measurable impact on the performance, apparently manual loop unrolling still sometimes wins.</p>
+<p><code>RaysProjections</code> holds a number of <code>Simd</code>s, one for each object attribute I need. 
+Each <code>intersect_with_*</code> method call updates lanes in these attributes if an intersection in that lane was closer than the previous closest. 
+Here's the easy one:</p>
+<pre data-lang="rust" style="background-color:#fafafa;color:#61676c;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#fa6e32;">fn </span><span style="color:#f29718;">intersect_with_aa_plane</span><span>(</span><span style="color:#ed9366;">&amp;</span><span style="color:#fa6e32;">mut </span><span style="color:#ff8f40;">self</span><span>, </span><span style="color:#ff8f40;">plane</span><span style="color:#61676ccc;">:</span><span> Plane) {
+</span><span>    </span><span style="font-style:italic;color:#abb0b6;">// Get plane&#39;s attributes from scene
+</span><span>    </span><span style="color:#fa6e32;">let</span><span> offset_within_axis </span><span style="color:#ed9366;">= </span><span>Reals</span><span style="color:#ed9366;">::</span><span>splat(</span><span style="font-style:italic;color:#55b4d4;">self</span><span style="color:#ed9366;">.</span><span>scene</span><span style="color:#ed9366;">.</span><span style="color:#f07171;">plane_offset</span><span>(plane))</span><span style="color:#61676ccc;">;
+</span><span>    </span><span style="color:#fa6e32;">let</span><span> normal </span><span style="color:#ed9366;">= </span><span>Vectors</span><span style="color:#ed9366;">::</span><span>from_single(</span><span style="font-style:italic;color:#55b4d4;">self</span><span style="color:#ed9366;">.</span><span>scene</span><span style="color:#ed9366;">.</span><span style="color:#f07171;">plane_normal</span><span>(plane))</span><span style="color:#61676ccc;">;
+</span><span>    </span><span style="color:#fa6e32;">let</span><span> color </span><span style="color:#ed9366;">= </span><span>Colors</span><span style="color:#ed9366;">::</span><span>from_single(</span><span style="font-style:italic;color:#55b4d4;">self</span><span style="color:#ed9366;">.</span><span>scene</span><span style="color:#ed9366;">.</span><span style="color:#f07171;">obstacle_color</span><span>(Obstacle</span><span style="color:#ed9366;">::</span><span>Plane(plane)))</span><span style="color:#61676ccc;">;
+</span><span>    </span><span style="font-style:italic;color:#abb0b6;">// Get the axis the plane is on
+</span><span>    </span><span style="color:#fa6e32;">let</span><span> axis </span><span style="color:#ed9366;">= </span><span style="font-style:italic;color:#55b4d4;">self</span><span style="color:#ed9366;">.</span><span>scene</span><span style="color:#ed9366;">.</span><span style="color:#f07171;">plane_alignment_axis</span><span>(plane)</span><span style="color:#61676ccc;">;
+</span><span>
+</span><span>    </span><span style="color:#fa6e32;">let</span><span> toi </span><span style="color:#ed9366;">=
+</span><span>        (offset_within_axis </span><span style="color:#ed9366;">- </span><span style="font-style:italic;color:#55b4d4;">self</span><span style="color:#ed9366;">.</span><span>rays</span><span style="color:#ed9366;">.</span><span>origins</span><span style="color:#ed9366;">.</span><span style="color:#f07171;">get_axis</span><span>(axis))
+</span><span>            </span><span style="color:#ed9366;">/ </span><span style="font-style:italic;color:#55b4d4;">self</span><span style="color:#ed9366;">.</span><span>rays</span><span style="color:#ed9366;">.</span><span>dirs</span><span style="color:#ed9366;">.</span><span style="color:#f07171;">get_axis</span><span>(axis)</span><span style="color:#61676ccc;">;
+</span><span>    </span><span style="color:#fa6e32;">let</span><span> mask </span><span style="color:#ed9366;">=</span><span> toi</span><span style="color:#ed9366;">.</span><span style="color:#f07171;">simd_gt</span><span>(Reals</span><span style="color:#ed9366;">::</span><span>splat(</span><span style="color:#ff8f40;">MIN_TOI</span><span>)) </span><span style="color:#ed9366;">&amp;</span><span> toi</span><span style="color:#ed9366;">.</span><span style="color:#f07171;">simd_lt</span><span>(</span><span style="font-style:italic;color:#55b4d4;">self</span><span style="color:#ed9366;">.</span><span>min_toi)</span><span style="color:#61676ccc;">;
+</span><span>
+</span><span>    </span><span style="color:#f07171;">update_reals_if</span><span>(</span><span style="color:#ed9366;">&amp;</span><span style="color:#fa6e32;">mut </span><span style="font-style:italic;color:#55b4d4;">self</span><span style="color:#ed9366;">.</span><span>min_toi</span><span style="color:#61676ccc;">,</span><span> mask</span><span style="color:#61676ccc;">,</span><span> toi)</span><span style="color:#61676ccc;">;
+</span><span>    </span><span style="font-style:italic;color:#55b4d4;">self</span><span style="color:#ed9366;">.</span><span>obstacle_colors</span><span style="color:#ed9366;">.</span><span style="color:#f07171;">update_if</span><span>(mask</span><span style="color:#61676ccc;">,</span><span> color)</span><span style="color:#61676ccc;">;
+</span><span>    </span><span style="font-style:italic;color:#55b4d4;">self</span><span style="color:#ed9366;">.</span><span>obstacle_normals</span><span style="color:#ed9366;">.</span><span style="color:#f07171;">update_if</span><span>(mask</span><span style="color:#61676ccc;">,</span><span> normal)</span><span style="color:#61676ccc;">;
+</span><span>}
+</span></code></pre>
+<p>
+
+<figure>
+    <img src="simd_rt.png" />
+    
+    <figcaption>Reflections are somewhat turned down</figcaption>
+    
+</figure>
+The image is more or less the same, but now it takes 70ms to render.
+That's a 4x speed-up - good, but not the 7-8x I hoped for, and not enough for smooth 60fps.
+Now it's finally time to go wide.</p>
+<h1 id="going-wide-with-rayon">Going wide with rayon</h1>
+<p>There's nothing much to say here, <a href="https://github.com/rayon-rs/rayon">rayon</a> just works 🤷.
+I added <code>rayon = &quot;1.5&quot;</code> to my <code>Cargo.toml</code>, put <code>use rayon::prelude::*;</code> in the top and replaced <code>chunks_exact_mut(LANES)</code> with <code>par_chunks_exact_mut(LANES)</code>.
+I got 7.6x speed-up on my 8-core machine, that got me down to 10ms per frame, which is more than enough for a game.
+Quite anti-climatic, but oh well.</p>
+<h1 id="fancying-up-with-checkers">Fancying up with checkers</h1>
+<p>To spice things up a little I added the checker pattern to all planes.
+The math is quite simple - convert surface coordinates to integers, add them up and see if the sum is odd.
+The problem is that using surface coordinates slows things up a lot.
+So instead of using 2d surface coordinates at the point of impact I used 3d coordinates, as if the space itself was made of cubes laid in the checker pattern.
+Now all I had to do was to check whether the point of impact was within such a cube or not.</p>
+<pre data-lang="rust" style="background-color:#fafafa;color:#61676c;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#fa6e32;">let mut</span><span> offset_pois </span><span style="color:#ed9366;">= </span><span style="font-style:italic;color:#55b4d4;">self</span><span style="color:#ed9366;">.</span><span>rays</span><span style="color:#ed9366;">.</span><span>origins </span><span style="color:#ed9366;">+ </span><span style="font-style:italic;color:#55b4d4;">self</span><span style="color:#ed9366;">.</span><span>rays</span><span style="color:#ed9366;">.</span><span>dirs </span><span style="color:#ed9366;">*</span><span> toi</span><span style="color:#61676ccc;">;
+</span><span>offset_pois </span><span style="color:#ed9366;">*= </span><span style="color:#ff8f40;">1.5</span><span style="color:#61676ccc;">;
+</span><span style="color:#fa6e32;">let</span><span> checkered_mask </span><span style="color:#ed9366;">=</span><span> mask
+</span><span>    </span><span style="color:#ed9366;">&amp; </span><span>((offset_pois</span><span style="color:#ed9366;">.</span><span>xs</span><span style="color:#ed9366;">.</span><span>cast</span><span style="color:#ed9366;">::</span><span>&lt;Integer&gt;()
+</span><span>        </span><span style="color:#ed9366;">+</span><span> offset_pois</span><span style="color:#ed9366;">.</span><span>ys</span><span style="color:#ed9366;">.</span><span>cast</span><span style="color:#ed9366;">::</span><span>&lt;Integer&gt;()
+</span><span>        </span><span style="color:#ed9366;">+</span><span> offset_pois</span><span style="color:#ed9366;">.</span><span>zs</span><span style="color:#ed9366;">.</span><span>cast</span><span style="color:#ed9366;">::</span><span>&lt;Integer&gt;())
+</span><span>        </span><span style="color:#ed9366;">% </span><span>Integers</span><span style="color:#ed9366;">::</span><span>splat(</span><span style="color:#ff8f40;">2</span><span>))
+</span><span>    </span><span style="color:#ed9366;">.</span><span style="color:#f07171;">simd_eq</span><span>(Integers</span><span style="color:#ed9366;">::</span><span>splat(</span><span style="color:#ff8f40;">0</span><span>))</span><span style="color:#61676ccc;">;
+</span><span style="color:#f07171;">update_reals_if</span><span>(</span><span style="color:#ed9366;">&amp;</span><span style="color:#fa6e32;">mut </span><span style="font-style:italic;color:#55b4d4;">self</span><span style="color:#ed9366;">.</span><span>obstacle_reflectances</span><span style="color:#61676ccc;">,</span><span> checkered_mask</span><span style="color:#61676ccc;">, </span><span style="color:#ff8f40;">ZEROS</span><span>)</span><span style="color:#61676ccc;">;
+</span></code></pre>
+<p>Here's the final result
+
+
+<figure>
+    <img src="checkers.png" />
+    
+    <figcaption>Dark squares don't reflect rays</figcaption>
+    
+</figure>
+After that I added a shortcut which stops the tracing loop if all the lanes hit unreflective surfaces.
+As a result the overall performance stayed roughly the same.</p>
+<h1 id="finishing-up">Finishing up</h1>
+<p>With rendering done, the interesting part was over.
+I used <a href="https://github.com/not-fl3/macroquad">macroquad</a> to show the image and the UI and to process inputs.
+I added a trivial collision detection, inertia, scoring system, and menus, all straightforward. 
+None of these subsystems had any effect on the performance, so no time was spent optimizing them.</p>
+<p>Porting to wasm was surprisingly easy, mainly thanks to macroquad, the only casualty was rayon - it's possible to use Web Workers for the thread pool, but that's tricky and requires the HTTP server to set a COOP/COEP headers.
+GitHub Pages doesn't set these, and publishing this version would be problematic anyway.
+So I ended up disabling rayon on wasm.
+The resulting wasm performance was about half of that of a single-threaded native version, the results vary depending on a browser - Firefox being 2x times slower than Chrome.</p>
+<h1 id="getting-closure">Getting closure</h1>
+<p>When I started the project I wanted to busy myself for some time and maybe to relive that thrill of coming up with optimal solutions for useless problems all with limited resources.
+Now, modern PCs are hardly &quot;limited&quot;, but that only means you have to set unreasonable tasks for yourself, aim for the stars, to get yourself interested.
+Getting the 180x speed-up was rewarding, although the hardest part was to finish the project once I got decent fps and do the boring stuff like UI.
+I'm glad I did tho.</p>
+
+        </section>
+
+        
+
+    </article>
+</main>
+
+
+    </div>
+</body>
+
+</html>
