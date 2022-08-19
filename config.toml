@@ -1,0 +1,21 @@
+base_url = "https://batonius.github.io"
+compile_sass = true
+build_search_index = false
+theme = "apollo"
+
+[markdown]
+highlight_code = true
+highlight_theme = "ayu-light"
+
+[extra]
+toc = true
+theme = "auto"
+menu = [
+    { name = "/posts", url = "/posts", weight = 1 },
+    { name = "/about", url = "/about", weight = 3 },
+]
+stylesheets = [ "img.css" ]
+
+[extra.analytics]
+enabled = true
+goatcounter_user = "batonius"
