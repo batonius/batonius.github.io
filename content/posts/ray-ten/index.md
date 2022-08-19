@@ -3,6 +3,8 @@ title = "Nostalgic ray tracing with parry3d, portable-simd and rayon-xor-wasm"
 date = "2022-08-19"
 +++
 
+You can see the final code at <https://github.com/batonius/ray-ten> and play the wasm build at <https://batonius.github.io/ray-ten/>. 
+
 # Feeling nostalgic
 If you watched [Black Mirror: Bandersnatch](https://www.imdb.com/title/tt9495224/) then you know that the UK in the 80s was booming with small-scale game development.
 For a variety of reasons, the dominant gaming platforms till the end of the decade were not consoles like NES, but locally made home computers. 
@@ -282,7 +284,7 @@ example::bar:
     ja       .LBB1_6
     ; This goes on for 70+ lines
 ```
-Thanks to a very smart loop unrolling by the compiler, we have 15 comparisons (`vucomiss`) and 15 branching (the `j*`) instructions, each ready to mess with the branch predictor.
+Thanks to loop unrolling by the compiler, we have 15 comparisons (`vucomiss`) and 15 branching (the `j*`) instructions, each ready to mess with the branch predictor.
 You can see by the `ss` suffix that the instructions treat each vector register as a `s`calar `s`ingle-percision value, meaning we've lost all the benefits of SIMD.
 
 The solution to make branching in SIMD code efficient is very simple - just have no branches, write code linearly, with no `if`s.
@@ -442,10 +444,9 @@ Porting to wasm was surprisingly easy, mainly thanks to macroquad, the only casu
 GitHub Pages doesn't set these, and publishing this version would be problematic anyway.
 So I ended up disabling rayon on wasm.
 The resulting wasm performance was about half of that of a single-threaded native version, the results vary depending on a browser - Firefox being 2x times slower than Chrome.
-You can see the final code at <https://github.com/batonius/ray-ten> and play the wasm build at <https://batonius.github.io/ray-ten/>. 
 
 # Getting closure
 When I started the project I wanted to busy myself for some time and maybe to relive that thrill of coming up with optimal solutions for useless problems all with limited resources.
 Now, modern PCs are hardly "limited", but that only means you have to set unreasonable tasks for yourself, aim for the stars, to get yourself interested.
 Getting the 180x speed-up was rewarding, although the hardest part was to finish the project once I got decent fps and do the boring stuff like UI.
-I'm glad I did tho, now I have something to brag about.
+I'm glad I did tho.
